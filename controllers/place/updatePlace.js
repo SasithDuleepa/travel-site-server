@@ -1,10 +1,15 @@
 const DB = require('./../../config/database');
 const fs = require('fs').promises;
 
+const path = require('path');
+
 const PlaceUpdate = async (req, res) => {
     const { id } = req.params;
     const { coverImgs, cardImg, deletedImgs, name,priority, lat, lng, time, fee, description, short } = req.body;
     const { newCoverImg, newCardImg, newImgs } = req.files;
+
+    console.log(req.files)
+    console.log(req.body)
 
     let cardImage_success = 0;
     let cardImage_unsuccess = 0;
@@ -21,16 +26,94 @@ const PlaceUpdate = async (req, res) => {
     let data_success = 0;
     let data_unsuccess = 0;
 
+        // Ensure upload directories exist
+      const uploadDir = path.resolve('./uploads/places');
+      // if (!fs.existsSync(uploadDir)) {
+      //   fs.mkdirSync(uploadDir, { recursive: true });
+      // }
+
+      // Save files
+      const saveFile = (file, folder) =>
+        new Promise((resolve, reject) => {
+          const filePath = `${folder}/${file.originalname}`;
+          fs.writeFile(filePath, file.buffer, (err) => {
+            if (err) reject(err);
+            else resolve(file.originalname);
+          });
+        });
+
+        try {
+
+        if(req.files.newCardImg[0]){
+            //save new file
+            await Promise.all([
+                saveFile(req.files.newCardImg[0], uploadDir),
+              ]);
+
+            //delete exist file
+            const filePath = `./uploads/places/${cardImg}`;
+            await fs.unlink(filePath);
+
+            //add new file name to db
+            await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [req.files.newCardImg[0].originalname, id]);
+
+
+
+        }else if(req.files.newCoverImg[0]){
+            //save new file
+            await Promise.all([
+                saveFile(req.files.newCoverImg[0], uploadDir),
+              ]);
+
+            //delete exist file
+            const filePath = `./uploads/places/${coverImgs}`;
+            await fs.unlink(filePath);
+
+            //add new file name to db
+            await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [req.files.newCoverImg[0].originalname, id]);
+
+        }else if(req.files.newImgs){
+            //save new files
+              await Promise.all(
+                req.files.newImgs.map((img) => saveFile(img, uploadDir))
+              );
+            //add new file names to db
+            req.files.newImgs.map(async (img) => {
+                await DB.connection.query('INSERT INTO place_img (place_id, img_name) VALUES (?, ?)', [id, img.filename]);
+                newImgs_success++;
+            })
+            //delete exist files
+            const deleteImages = Array.isArray(deletedImgs) ? deletedImgs : [deletedImgs];
+            await Promise.all(
+                deleteImages.map(async (image) => {
+                    const filePath = `./uploads/places/${image}`;
+                    await fs.unlink(filePath);
+                    await DB.connection.query('DELETE FROM place_img WHERE img_name=?', [image]);
+                    deleteImage_success++;
+                })
+            );
+
+        }
+  
+        
+           
+      }catch (fileErr) {
+          console.error("File handling error:", fileErr);
+          return res.status(500).json({ message: "Error saving files" });
+        }
+        
+
+
     try {
         // Handle newCardImg
         if (newCardImg) {
             if (cardImg === 'null') {
-                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].filename, id]);
+                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].originalname, id]);
                 cardImage_success++;
             } else if (cardImg !== 'null') {
                 const filePath = `./uploads/places/${cardImg}`;
                 await fs.unlink(filePath);
-                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].filename, id]);
+                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].originalname, id]);
                 cardImage_success++;
             }
         }
@@ -38,12 +121,12 @@ const PlaceUpdate = async (req, res) => {
         // Handle newCoverImg
         if (newCoverImg) {
             if (coverImgs === 'null') {
-                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].filename, id]);
+                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].originalname, id]);
                 coverImage_success++;
             } else if (coverImgs !== 'null') {
                 const filePath = `./uploads/places/${coverImgs}`;
                 await fs.unlink(filePath);
-                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].filename, id]);
+                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].originalname, id]);
                 coverImage_success++;
             }
         }

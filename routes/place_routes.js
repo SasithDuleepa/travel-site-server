@@ -23,14 +23,15 @@ const {AdminAuthenticate} = require('./../middleware/auth/admin_authenticate');
 
 
 const router = express.Router();
-router.use(express.static(path.join((__dirname, "uploads/places"))));
+router.use(express.static(path.join((__dirname, "uploads/test"))));
 
 router.get('/placeimg', Placeimg);
 router.post('/addplace',upload.fields([
                                         { name: 'cardImg', maxCount: 1 },
-                                        { name: 'coverImgs', maxCount: 1 },
-                                        { name: 'files', maxCount: 10 },
-  ]),AdminAuthenticate, AddPlace);
+                                        { name: 'coverImg', maxCount: 1 },
+                                        { name: 'placeImgs', maxCount: 10 },
+  ])
+  ,AdminAuthenticate, AddPlace);
 
 
 
