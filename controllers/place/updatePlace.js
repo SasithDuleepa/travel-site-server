@@ -7,8 +7,8 @@ const PlaceUpdate = async (req, res) => {
     const { id } = req.params;
     const { coverImgs, cardImg, deletedImgs, name,priority, lat, lng, time, fee, description, short } = req.body;
 
-    console.log(req.files)
-    console.log(req.body)
+    // console.log(req.files)
+    // console.log(req.body)
 
     let cardImage_success = 0;
     let cardImage_unsuccess = 0;
@@ -75,13 +75,11 @@ const PlaceUpdate = async (req, res) => {
                 req.files.newImgs.map((img) =>{
 
                      saveFile(img, uploadDir)
-                console.log(img.originalname)
                 }
             )
               );
             //add new file names to db
             req.files.newImgs.map(async (img) => {
-                console.log(img.originalname)
                 await DB.connection.query('INSERT INTO place_img (place_id, img_name) VALUES (?, ?)', [id, img.originalname]);
                 newImgs_success++;
             })
@@ -149,7 +147,7 @@ const PlaceUpdate = async (req, res) => {
         });
            
       }catch (error) {
-        console.log(error);
+        // console.log(error);
         res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
         

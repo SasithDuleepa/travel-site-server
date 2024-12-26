@@ -36,7 +36,7 @@ router.use(express.static(path.join((__dirname, "uploads/tour"))));
 
 router.post('/addTourCategory',upload.fields([
     { name: 'coverImage', maxCount: 1 },
-    { name: 'file', maxCount: 10 },
+    { name: 'cardImage', maxCount: 1 },
 ]),AdminAuthenticate, AddTourCategory);
 
 router.get('/toursSearch/:tour',ToursSearch);    

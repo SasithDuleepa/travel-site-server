@@ -1,19 +1,45 @@
 const DB = require('../../config/database');
 const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 
-const AddTourCategory = (req, res) => {
+const AddTourCategory =async (req, res) => {
     const { packageName, description, price, dayData, distance ,days} = req.body;
     console.log(req.files);
-    let image = req.files.file[0].filename;
-    let coverImg = req.files.coverImage[0].filename;
+    let cardImg = req.files.coverImage[0].originalname || null;
+    let coverImg = req.files.coverImage[0].originalname || null;
     const TourPackegeId = uuidv4();
     const Tour_Packeg_Id = TourPackegeId.substr(0, 6);
     const tour_packeg_id = 'tp-' + Tour_Packeg_Id;
 
-    if (packageName !== '' || description !== ''  || dayData !== '' || !req.files.file || !req.files.coverImage) {
+    const uploadDir = path.resolve('./uploads/tour');
+    // Save files
+    const saveFile = (file, folder) =>
+        new Promise((resolve, reject) => {
+          const filePath = `${folder}/${file.originalname}`;
+          fs.writeFile(filePath, file.buffer, (err) => {
+            if (err) reject(err);
+            else resolve(file.originalname);
+          });
+        });
+
+
+        if(req.files.coverImage[0] ){
+            await Promise.all([
+                saveFile(req.files.coverImage[0], uploadDir),
+              ]);
+        }
+
+        if(req.files.cardImage[0] ){
+            await Promise.all([
+                saveFile(req.files.cardImage[0], uploadDir),
+              ]);
+        }
+
+    if (packageName !== '' || description !== ''  || dayData !== '') {
         const query_1 = `INSERT INTO tour (tour_id, tour_name, tour_description,  tour_img, distance,cover_img,days) 
                         VALUES (?,  ?, ?, ?, ?, ?, ?)`;
-        const values_1 = [tour_packeg_id, packageName, description,  image, distance, coverImg,days];
+        const values_1 = [tour_packeg_id, packageName, description,  cardImg, distance, coverImg,days];
 
         DB.connection.query(query_1, values_1, (err, result) => {
             if (err) {
