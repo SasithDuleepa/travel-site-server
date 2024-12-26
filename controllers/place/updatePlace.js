@@ -6,7 +6,6 @@ const path = require('path');
 const PlaceUpdate = async (req, res) => {
     const { id } = req.params;
     const { coverImgs, cardImg, deletedImgs, name,priority, lat, lng, time, fee, description, short } = req.body;
-    const { newCoverImg, newCardImg, newImgs } = req.files;
 
     console.log(req.files)
     console.log(req.body)
@@ -26,11 +25,7 @@ const PlaceUpdate = async (req, res) => {
     let data_success = 0;
     let data_unsuccess = 0;
 
-        // Ensure upload directories exist
       const uploadDir = path.resolve('./uploads/places');
-      // if (!fs.existsSync(uploadDir)) {
-      //   fs.mkdirSync(uploadDir, { recursive: true });
-      // }
 
       // Save files
       const saveFile = (file, folder) =>
@@ -44,7 +39,7 @@ const PlaceUpdate = async (req, res) => {
 
         try {
 
-        if(req.files.newCardImg[0]){
+        if(req.files.newCardImg && req.files.newCardImg[0] ){
             //save new file
             await Promise.all([
                 saveFile(req.files.newCardImg[0], uploadDir),
@@ -56,10 +51,11 @@ const PlaceUpdate = async (req, res) => {
 
             //add new file name to db
             await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [req.files.newCardImg[0].originalname, id]);
+            cardImage_success++;
 
 
-
-        }else if(req.files.newCoverImg[0]){
+        }
+        if(req.files.newCoverImg && req.files.newCoverImg[0] ){
             //save new file
             await Promise.all([
                 saveFile(req.files.newCoverImg[0], uploadDir),
@@ -71,88 +67,42 @@ const PlaceUpdate = async (req, res) => {
 
             //add new file name to db
             await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [req.files.newCoverImg[0].originalname, id]);
-
-        }else if(req.files.newImgs){
+            coverImage_success++;
+        }
+        if(req.files.newImgs  ){
             //save new files
               await Promise.all(
-                req.files.newImgs.map((img) => saveFile(img, uploadDir))
+                req.files.newImgs.map((img) =>{
+
+                     saveFile(img, uploadDir)
+                console.log(img.originalname)
+                }
+            )
               );
             //add new file names to db
             req.files.newImgs.map(async (img) => {
-                await DB.connection.query('INSERT INTO place_img (place_id, img_name) VALUES (?, ?)', [id, img.filename]);
+                console.log(img.originalname)
+                await DB.connection.query('INSERT INTO place_img (place_id, img_name) VALUES (?, ?)', [id, img.originalname]);
                 newImgs_success++;
             })
-            //delete exist files
-            const deleteImages = Array.isArray(deletedImgs) ? deletedImgs : [deletedImgs];
-            await Promise.all(
-                deleteImages.map(async (image) => {
-                    const filePath = `./uploads/places/${image}`;
-                    await fs.unlink(filePath);
-                    await DB.connection.query('DELETE FROM place_img WHERE img_name=?', [image]);
-                    deleteImage_success++;
-                })
-            );
+            
 
         }
-  
-        
-           
-      }catch (fileErr) {
-          console.error("File handling error:", fileErr);
-          return res.status(500).json({ message: "Error saving files" });
+
+        //delete exist files
+        if(deletedImgs){
+            const deleteImages = Array.isArray(deletedImgs) ? deletedImgs : [deletedImgs];
+        await Promise.all(
+            deleteImages.map(async (image) => {
+                const filePath = `./uploads/places/${image}`;
+                await fs.unlink(filePath);
+                await DB.connection.query('DELETE FROM place_img WHERE img_name=?', [image]);
+                deleteImage_success++;
+            })
+        );
         }
         
 
-
-    try {
-        // Handle newCardImg
-        if (newCardImg) {
-            if (cardImg === 'null') {
-                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].originalname, id]);
-                cardImage_success++;
-            } else if (cardImg !== 'null') {
-                const filePath = `./uploads/places/${cardImg}`;
-                await fs.unlink(filePath);
-                await DB.connection.query('UPDATE place SET card_img=? WHERE place_id=?', [newCardImg[0].originalname, id]);
-                cardImage_success++;
-            }
-        }
-
-        // Handle newCoverImg
-        if (newCoverImg) {
-            if (coverImgs === 'null') {
-                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].originalname, id]);
-                coverImage_success++;
-            } else if (coverImgs !== 'null') {
-                const filePath = `./uploads/places/${coverImgs}`;
-                await fs.unlink(filePath);
-                await DB.connection.query('UPDATE place SET cover_img=? WHERE place_id=?', [newCoverImg[0].originalname, id]);
-                coverImage_success++;
-            }
-        }
-
-        // Handle deletedImgs
-        if (deletedImgs) {
-            const deleteImages = Array.isArray(deletedImgs) ? deletedImgs : [deletedImgs];
-            await Promise.all(
-                deleteImages.map(async (image) => {
-                    const filePath = `./uploads/places/${image}`;
-                    await fs.unlink(filePath);
-                    await DB.connection.query('DELETE FROM place_img WHERE img_name=?', [image]);
-                    deleteImage_success++;
-                })
-            );
-        }
-
-        // Handle newImgs
-        if (newImgs) {
-            await Promise.all(
-                newImgs.map(async (img) => {
-                    await DB.connection.query('INSERT INTO place_img (place_id, img_name) VALUES (?, ?)', [id, img.filename]);
-                    newImgs_success++;
-                })
-            );
-        }
 
         // Handle other data updates
         if (name || lat || lng || time || fee || description || short || priority) {
@@ -177,6 +127,9 @@ const PlaceUpdate = async (req, res) => {
             data_success++;
         }
 
+
+
+  
         // Response
         let responseMessage = 'Update operation completed successfully';
         let success = true;
@@ -194,10 +147,13 @@ const PlaceUpdate = async (req, res) => {
             newImgs: { success: newImgs_success, unsuccess: newImgs_unsuccess },
             data: { success: data_success, unsuccess: data_unsuccess },
         });
-    } catch (error) {
-        console.error(error);
+           
+      }catch (error) {
+        console.log(error);
         res.status(500).json({ success: false, message: 'Internal Server Error' });
     }
+        
+
 };
 
 module.exports = PlaceUpdate;
