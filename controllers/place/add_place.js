@@ -2,6 +2,7 @@ const DB = require('./../../config/database');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const renameFile = require('./../../utils/fileRename')
 
 const AddPlace = async (req, res) => {
   const { name, priority, description, time, fee, lat, lng, shortDescription } = req.body;
@@ -43,8 +44,8 @@ const AddPlace = async (req, res) => {
           });
         });
 
-      const cardImg = req.files.cardImg[0];
-      const coverImg = req.files.coverImg[0];
+      const cardImg = renameFile(req.files.cardImg[0]);
+      const coverImg = renameFile(req.files.coverImg[0]);
       const placeImgs = req.files.placeImgs;
 
       try {
@@ -54,7 +55,29 @@ const AddPlace = async (req, res) => {
         ]);
 
         await Promise.all(
-          placeImgs.map((img) => saveFile(img, uploadDir))
+          placeImgs.map((img) =>{ saveFile(img, uploadDir)
+
+                        // Insert place images into the database
+                        const imageQueries = placeImgs.map(
+                          (img) =>
+                            new Promise((resolve, reject) => {
+                              const imgQuery = `INSERT INTO place_img (img_name, place_id) VALUES (?, ?)`;
+                              DB.connection.query(imgQuery, [img.originalname, Id], (imgErr) => {
+                                if (imgErr) reject(imgErr);
+                                else resolve();
+                              });
+                            })
+                        );
+
+                        Promise.all(imageQueries)
+              .then(() => {
+                return res.status(200).json({ message: "Place added successfully" });
+              })
+              .catch((imgErr) => {
+                console.error("Error adding images:", imgErr);
+                return res.status(500).json({ message: "Error adding place images" });
+              });
+          })
         );
 
         // Insert place data into the database
@@ -71,26 +94,9 @@ const AddPlace = async (req, res) => {
               return res.status(500).json({ message: "Error adding place" });
             }
 
-            // Insert place images into the database
-            const imageQueries = placeImgs.map(
-              (img) =>
-                new Promise((resolve, reject) => {
-                  const imgQuery = `INSERT INTO place_img (img_name, place_id) VALUES (?, ?)`;
-                  DB.connection.query(imgQuery, [img.originalname, Id], (imgErr) => {
-                    if (imgErr) reject(imgErr);
-                    else resolve();
-                  });
-                })
-            );
 
-            Promise.all(imageQueries)
-              .then(() => {
-                return res.status(200).json({ message: "Place added successfully" });
-              })
-              .catch((imgErr) => {
-                console.error("Error adding images:", imgErr);
-                return res.status(500).json({ message: "Error adding place images" });
-              });
+
+            
           }
         );
       } catch (fileErr) {
